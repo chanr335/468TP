@@ -4,7 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 
-// COMPILE: gcc -O3 -march=native -flto -fomit-frame-pointer -o output main.c
+// COMPILE: clang -O3 -march=native -flto -fomit-frame-pointer -o nqueens_pgo_gen main.c && ./nqueens_pgo_gen
 
 // Board represents the N-Queens board
 typedef struct {
