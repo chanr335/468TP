@@ -20,6 +20,7 @@ type Board struct {
 	mu             sync.Mutex // Mutex for synchronizing access to shared data
 }
 
+
 // NewBoard initializes the board with a smarter initial placement
 func NewBoard(n int) *Board {
 	board := &Board{
@@ -31,8 +32,22 @@ func NewBoard(n int) *Board {
 	}
 
 	// Smarter initial placement: Place queens on different rows and diagonals
+  //   for j := 1; j <= (board.n/2); j++ {
+  //       col := j - 1
+  //       col2 := board.n/2 + j - 1
+  //       row := 2*j-1
+  //       row2 := row - 1
+  //       // fmt.Println(col, col2, row, row2)
+  //       board.queens[col] = row
+  //       board.queens[col2] = row2
+		// board.diag1Conflicts[row-col+board.n]++
+		// board.diag2Conflicts[row+col]++
+		// board.diag1Conflicts[row2-col2+board.n]++
+		// board.diag2Conflicts[row2+col2]++
+  //   }
+    
 	for col := 0; col < n; col++ {
-		row := (col * col) % n
+        row := rand.Intn(board.n) // put random number
 		board.queens[col] = row
 		board.rowConflicts[row]++
 		board.diag1Conflicts[row-col+board.n]++
@@ -62,10 +77,11 @@ func (b *Board) MinimizeConflicts(cols []int, rnd *rand.Rand) {
 		bestRows := []int{}
 		minConflicts := b.n * 3 // Maximum possible conflicts per queen
 
+        diag1 := -col + b.n
 		// Find all rows with the minimum number of conflicts
 		for row := 0; row < b.n; row++ {
 			conflicts := b.rowConflicts[row] +
-				b.diag1Conflicts[row-col+b.n] +
+				b.diag1Conflicts[row+diag1] +
 				b.diag2Conflicts[row+col]
 			if row == b.queens[col] {
 				conflicts -= 3 // Exclude self-conflicts
@@ -135,7 +151,7 @@ func abs(x int) int {
 
 // SolveParallel solves the N-Queens problem using an optimized parallel Min-Conflicts algorithm
 func SolveParallel(n, maxSteps int) ([]int, bool) {
-	globalRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+    globalRand := rand.New(rand.NewSource(12345)) // Replace 12345 with any constant value
 	board := NewBoard(n)
 	step := 0
 	numCPU := runtime.NumCPU()
@@ -194,7 +210,7 @@ func SolveParallel(n, maxSteps int) ([]int, bool) {
 
 func main() {
 	// Range of board sizes to test
-	boardSizes := []int{100, 1000, 10000, 100000, 1000000}
+	boardSizes := []int{100, 1000, 10000, 100000, 1000000, 10000000}
 
 	for _, n := range boardSizes {
 		fmt.Printf("Solving N-Queens for n = %d...\n", n)
