@@ -87,17 +87,27 @@ void MinimizeConflicts(Board *b, int *cols, int numCols, unsigned int *seed) {
 
         int *bestRows = (int *)malloc(b->n * sizeof(int));
         int numBestRows = 0;
-        int minConflicts = b->n * 3; // Maximum possible conflicts per queen
+        int minConflicts = b->n; // Maximum possible conflicts per queen
 
         int diag1 = -col + b->n;
 
         // Find all rows with the minimum number of conflicts
-        for (int row = 0; row < b->n; row++) {
+
+        for (int row = 0; row < b->queens[col]; row++) {
             int conflicts = b->rowConflicts[row] + b->diag1Conflicts[row + diag1] +
                 b->diag2Conflicts[row + col];
-            if (row == b->queens[col]) {
-                conflicts -= 3; // Exclude self-conflicts
+            if (conflicts < minConflicts) {
+                bestRows[0] = row;
+                numBestRows = 1;
+                minConflicts = conflicts;
+            } else if (conflicts == minConflicts) {
+                bestRows[numBestRows++] = row;
             }
+        }
+
+        for (int row = b->queens[col] + 1; row < b->n; row++) {
+            int conflicts = b->rowConflicts[row] + b->diag1Conflicts[row + diag1] +
+                b->diag2Conflicts[row + col];
             if (conflicts < minConflicts) {
                 bestRows[0] = row;
                 numBestRows = 1;
@@ -266,7 +276,7 @@ int main() {
         double duration = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 
         if (success) {
-            printf("Solution found in %f seconds in %d \n", duration);
+            printf("Solution found in %f seconds \n", duration);
 
             // Validate the solution
             if (ValidateSolution(sol, n)) {
