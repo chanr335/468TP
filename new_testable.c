@@ -167,6 +167,29 @@ void *MinimizeConflictsThread(void *arg) {
   return NULL;
 }
 
+// Function to print the solution to a file in the desired format
+void PrintSolutionToFile(int *queens, int n, const char *filename) {
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    printf("Error: Cannot open %s for writing\n", filename);
+    return;
+  }
+
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < n; col++) {
+      if (queens[col] == row) {
+        fprintf(fp, "Q ");
+      } else {
+        fprintf(fp, ". ");
+      }
+    }
+    fprintf(fp, "\n");
+  }
+
+  fclose(fp);
+  printf("Solution written to %s\n", filename);
+}
+
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts
 // algorithm
 double SolveParallel(int n, int maxSteps, int numCPU) {
@@ -207,6 +230,9 @@ double SolveParallel(int n, int maxSteps, int numCPU) {
       } else {
         printf(" -- ERROR: Invalid solution found\n");
       }
+
+      // Call the function to print the solution to a file
+      PrintSolutionToFile(board->queens, n, "output.txt");
 
       DeleteBoard(board);
       free(conflictCols);
@@ -261,7 +287,7 @@ double SolveParallel(int n, int maxSteps, int numCPU) {
 // File input function that validates input.txt as a solution for nQueens, and
 // validates it Required function for assignment submission
 void file_input() {
-  FILE *fp = fopen("input.txt", "r");
+  FILE *fp = fopen("output.txt", "r");
   if (fp == NULL) {
     printf("Error: Cannot open input.txt\n");
     return;
@@ -401,8 +427,8 @@ void file_input() {
 int main() {
   // File input function for when validating txt files
   file_input();
-  /**
-  int boardSizes[] = {10000};
+
+  int boardSizes[] = {100};
   int testQuantity = 20;
   random_state = (uint32_t)time(NULL); // Set random
   int numSizes = sizeof(boardSizes) / sizeof(boardSizes[0]);
@@ -420,6 +446,5 @@ int main() {
     }
     printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time / testQuantity);
   }
-  */
   return 0;
 }
