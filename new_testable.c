@@ -9,11 +9,11 @@ uint32_t random_state;
 
 // Board represents the N-Queens board
 typedef struct {
-  int n;
-  int *queens;
-  atomic_int *rowConflicts;
-  atomic_int *diag1Conflicts;
-  atomic_int *diag2Conflicts;
+    int n;
+    int *queens;
+    atomic_int *rowConflicts;
+    atomic_int *diag1Conflicts;
+    atomic_int *diag2Conflicts;
 } Board;
 
 // Function to compute absolute value
@@ -29,8 +29,8 @@ uint32_t xorshift(){
 
 // Initialize the board with a random placement
 Board *NewBoard(int n) {
-  Board *board = (Board *)malloc(sizeof(Board));
-  board->n = n;
+    Board *board = (Board *)malloc(sizeof(Board));
+    board->n = n;
 
     // Allocating memory for the board and its various arrays
     board->queens = (int *)malloc(n * sizeof(int));
@@ -83,18 +83,18 @@ void UpdateQueen(Board *b, int col, int newRow) {
     int oldRow = b->queens[col];
     if (oldRow == newRow) return;
 
-  // Remove old conflicts
-  atomic_fetch_sub(&b->rowConflicts[oldRow], 1);
-  atomic_fetch_sub(&b->diag1Conflicts[oldRow - col + b->n], 1);
-  atomic_fetch_sub(&b->diag2Conflicts[oldRow + col], 1);
+    // Remove old conflicts
+    atomic_fetch_sub(&b->rowConflicts[oldRow], 1);
+    atomic_fetch_sub(&b->diag1Conflicts[oldRow - col + b->n], 1);
+    atomic_fetch_sub(&b->diag2Conflicts[oldRow + col], 1);
 
-  // Place queen at new position
-  b->queens[col] = newRow;
+    // Place queen at new position
+    b->queens[col] = newRow;
 
-  // Add new conflicts
-  atomic_fetch_add(&b->rowConflicts[newRow], 1);
-  atomic_fetch_add(&b->diag1Conflicts[newRow - col + b->n], 1);
-  atomic_fetch_add(&b->diag2Conflicts[newRow + col], 1);
+    // Add new conflicts
+    atomic_fetch_add(&b->rowConflicts[newRow], 1);
+    atomic_fetch_add(&b->diag1Conflicts[newRow - col + b->n], 1);
+    atomic_fetch_add(&b->diag2Conflicts[newRow + col], 1);
 }
 
 // Minimize conflicts for queens in the given columns
@@ -130,61 +130,38 @@ void MinimizeConflicts(Board *b, int *cols, int numCols) {
         int newRow = bestRows[xorshift() % numBestRows];
         UpdateQueen(b, col, newRow);
     }
-
-    int numBestRows = 0;
-    int minConflicts = b->n; // Maximum possible conflicts per queen
-    int diag1 = -col + b->n;
-
-    // Find all rows with the minimum number of conflicts
-    for (int row = 0; row < b->n; row++) {
-      int conflicts = b->rowConflicts[row] + b->diag1Conflicts[row + diag1] +
-                      b->diag2Conflicts[row + col];
-      if (conflicts < minConflicts) {
-        bestRows[0] = row;
-        numBestRows = 1;
-        minConflicts = conflicts;
-      } else if (conflicts == minConflicts) {
-        bestRows[numBestRows++] = row;
-      }
-    }
-
-    // Randomly select one of the best rows to diversify moves
-    int newRow = bestRows[xorshift() % numBestRows];
-
-    UpdateQueen(b, col, newRow);
-  }
-  free(bestRows);
+    free(bestRows);
 }
 
 // Validate if the solution is valid (no queens attack each other)
 int ValidateSolution(int *queens, int n) {
-  for (int i = 0; i < n; i++) {
-    for (int j = i + 1; j < n; j++) {
-      // Check row conflicts
-      if (queens[i] == queens[j]) {
-        return 0; // false
-      }
-      // Check diagonal conflicts
-      if (abs_int(i - j) == abs_int(queens[i] - queens[j])) {
-        return 0; // false
-      }
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            // Check row conflicts
+            if (queens[i] == queens[j]) {
+                return 0; // false
+            }
+            // Check diagonal conflicts
+            if (abs_int(i - j) == abs_int(queens[i] - queens[j])) {
+                return 0; // false
+            }
+        }
     }
-  }
-  return 1; // true
+    return 1; // true
 }
 
 // Structure to pass data to threads
 typedef struct {
-  Board *board;
-  int *cols;
-  int numCols;
+    Board *board;
+    int *cols;
+    int numCols;
 } ThreadData;
 
 // Thread function to minimize conflicts
 void *MinimizeConflictsThread(void *arg) {
-  ThreadData *data = (ThreadData *)arg;
-  MinimizeConflicts(data->board, data->cols, data->numCols);
-  return NULL;
+    ThreadData *data = (ThreadData *)arg;
+    MinimizeConflicts(data->board, data->cols, data->numCols);
+    return NULL;
 }
 
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts algorithm
@@ -269,7 +246,7 @@ double SolveParallel(int n, int maxSteps) {
 }
 
 int main() {
-    int boardSizes[] = {100000};
+    int boardSizes[] = {10000};
     int testQuantity = 20;
     random_state = (uint32_t)time(NULL); // Set random
     int numSizes = sizeof(boardSizes) / sizeof(boardSizes[0]);
@@ -283,8 +260,5 @@ int main() {
         }
         printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time/testQuantity);
     }
-
-    printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time / testQuantity);
-  }
-  return 0;
+    return 0;
 }
