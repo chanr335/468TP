@@ -9,258 +9,325 @@ uint32_t random_state;
 
 // Board represents the N-Queens board
 typedef struct {
-    int n;
-    int *queens;
-    atomic_int *rowConflicts;
-    atomic_int *diag1Conflicts;
-    atomic_int *diag2Conflicts;
+  int n;
+  int *queens;
+  atomic_int *rowConflicts;
+  atomic_int *diag1Conflicts;
+  atomic_int *diag2Conflicts;
 } Board;
 
 // Function to compute absolute value
 int abs_int(int x) { return x < 0 ? -x : x; }
 
 // GENERATE NEXT RANDOM
-uint32_t xorshift(){
-    random_state ^= random_state << 13;
-    random_state ^= random_state >> 17;
-    random_state ^= random_state << 5;
-    return random_state;
+uint32_t xorshift() {
+  random_state ^= random_state << 13;
+  random_state ^= random_state >> 17;
+  random_state ^= random_state << 5;
+  return random_state;
 }
 
 // Initialize the board with a random placement
 Board *NewBoard(int n) {
-    Board *board = (Board *)malloc(sizeof(Board));
-    board->n = n;
+  Board *board = (Board *)malloc(sizeof(Board));
+  board->n = n;
 
-    // Allocating memory for the board and its various arrays
-    board->queens = (int *)malloc(n * sizeof(int));
-    board->rowConflicts = (atomic_int *)calloc(n, sizeof(atomic_int));
-    board->diag1Conflicts = (atomic_int *)calloc(2 * n, sizeof(atomic_int));
-    board->diag2Conflicts = (atomic_int *)calloc(2 * n, sizeof(atomic_int));
+  // Allocating memory for the board and its various arrays
+  board->queens = (int *)malloc(n * sizeof(int));
+  board->rowConflicts = (atomic_int *)calloc(n, sizeof(atomic_int));
+  board->diag1Conflicts = (atomic_int *)calloc(2 * n, sizeof(atomic_int));
+  board->diag2Conflicts = (atomic_int *)calloc(2 * n, sizeof(atomic_int));
 
-    // Initializing atomic values
-    for (int i = 0; i < n; i++) atomic_store(&board->rowConflicts[i],0);
-    for (int i = 0; i < 2*n; i++){
-        atomic_store(&board->diag1Conflicts[i],0);
-        atomic_store(&board->diag2Conflicts[i],0);
-    }
+  // Initializing atomic values
+  for (int i = 0; i < n; i++)
+    atomic_store(&board->rowConflicts[i], 0);
+  for (int i = 0; i < 2 * n; i++) {
+    atomic_store(&board->diag1Conflicts[i], 0);
+    atomic_store(&board->diag2Conflicts[i], 0);
+  }
 
-    // Place Queen by column and add it to its coresponding row/diagonal
-    for (int col = 0; col < n; col++) {
-        int row = xorshift() % board->n;
-        board->queens[col] = row;
-        board->rowConflicts[row]++;
-        board->diag1Conflicts[row - col + board->n]++;
-        board->diag2Conflicts[row + col]++;
-    }
-    return board;
+  // Place Queen by column and add it to its coresponding row/diagonal
+  for (int col = 0; col < n; col++) {
+    int row = xorshift() % board->n;
+    board->queens[col] = row;
+    board->rowConflicts[row]++;
+    board->diag1Conflicts[row - col + board->n]++;
+    board->diag2Conflicts[row + col]++;
+  }
+  return board;
 }
 
 // Deletes Board
-void DeleteBoard(Board *board){
-    if (board == NULL) return;
-    free(board->queens);
-    free(board->rowConflicts);
-    free(board->diag1Conflicts);
-    free(board->diag2Conflicts);
-    free(board);
+void DeleteBoard(Board *board) {
+  if (board == NULL)
+    return;
+  free(board->queens);
+  free(board->rowConflicts);
+  free(board->diag1Conflicts);
+  free(board->diag2Conflicts);
+  free(board);
 }
 
 // Check if the queen at the given column has any conflicts
 int HasConflict(Board *b, int col) {
-    int row = b->queens[col];
-    int diagonal1 = row - col + b->n;
-    int diagonal2 = row + col;
-    if (b->rowConflicts[row] > 1 || b->diag1Conflicts[diagonal1] > 1 
-        || b->diag2Conflicts[diagonal2] > 1) {
-        return 1; // true
-    }
-    return 0; // false
+  int row = b->queens[col];
+  int diagonal1 = row - col + b->n;
+  int diagonal2 = row + col;
+  if (b->rowConflicts[row] > 1 || b->diag1Conflicts[diagonal1] > 1 ||
+      b->diag2Conflicts[diagonal2] > 1) {
+    return 1; // true
+  }
+  return 0; // false
 }
 
 // Update the queen's position in the board
 void UpdateQueen(Board *b, int col, int newRow) {
-    int oldRow = b->queens[col];
-    if (oldRow == newRow) return;
+  int oldRow = b->queens[col];
+  if (oldRow == newRow)
+    return;
 
-    // Remove old conflicts
-    atomic_fetch_sub(&b->rowConflicts[oldRow], 1);
-    atomic_fetch_sub(&b->diag1Conflicts[oldRow - col + b->n], 1);
-    atomic_fetch_sub(&b->diag2Conflicts[oldRow + col], 1);
+  // Remove old conflicts
+  atomic_fetch_sub(&b->rowConflicts[oldRow], 1);
+  atomic_fetch_sub(&b->diag1Conflicts[oldRow - col + b->n], 1);
+  atomic_fetch_sub(&b->diag2Conflicts[oldRow + col], 1);
 
-    // Place queen at new position
-    b->queens[col] = newRow;
+  // Place queen at new position
+  b->queens[col] = newRow;
 
-    // Add new conflicts
-    atomic_fetch_add(&b->rowConflicts[newRow], 1);
-    atomic_fetch_add(&b->diag1Conflicts[newRow - col + b->n], 1);
-    atomic_fetch_add(&b->diag2Conflicts[newRow + col], 1);
+  // Add new conflicts
+  atomic_fetch_add(&b->rowConflicts[newRow], 1);
+  atomic_fetch_add(&b->diag1Conflicts[newRow - col + b->n], 1);
+  atomic_fetch_add(&b->diag2Conflicts[newRow + col], 1);
 }
 
 // Minimize conflicts for queens in the given columns
 void MinimizeConflicts(Board *b, int *cols, int numCols) {
-    // Array to keep track of potential best rows to place on
-    int *bestRows = (int *)malloc(b->n * sizeof(int));
+  // Array to keep track of potential best rows to place on
+  int *bestRows = (int *)malloc(b->n * sizeof(int));
 
-    for (int idx = 0; idx < numCols; idx++) {
-        int col = cols[idx];
-        // Skip if column has no conflicts
-        if (!HasConflict(b, col)) {
-            continue;
-        }
-        int numBestRows = 0;
-        int minConflicts = b->n; // Maximum possible conflicts per queen
-        int diag1 = -col + b->n;
-        // Find all rows with the minimum number of conflicts
-        for (int row = 0; row < b->n; row++) {
-            int conflicts = b->rowConflicts[row] + \
-                b->diag1Conflicts[row + diag1] + \
-                b->diag2Conflicts[row + col];
-            // Restart bestRows
-            if (conflicts < minConflicts) {
-                bestRows[0] = row;
-                numBestRows = 1;
-                minConflicts = conflicts;
-                // Add to existing rows that are same
-            } else if (conflicts == minConflicts) {
-                bestRows[numBestRows++] = row;
-            }
-        }
-        // Randomly select one of the best rows to diversify moves
-        int newRow = bestRows[xorshift() % numBestRows];
-        UpdateQueen(b, col, newRow);
+  for (int idx = 0; idx < numCols; idx++) {
+    int col = cols[idx];
+    // Skip if column has no conflicts
+    if (!HasConflict(b, col)) {
+      continue;
     }
-    free(bestRows);
+    int numBestRows = 0;
+    int minConflicts = b->n; // Maximum possible conflicts per queen
+    int diag1 = -col + b->n;
+    // Find all rows with the minimum number of conflicts
+    for (int row = 0; row < b->n; row++) {
+      int conflicts = b->rowConflicts[row] + b->diag1Conflicts[row + diag1] +
+                      b->diag2Conflicts[row + col];
+      // Restart bestRows
+      if (conflicts < minConflicts) {
+        bestRows[0] = row;
+        numBestRows = 1;
+        minConflicts = conflicts;
+        // Add to existing rows that are same
+      } else if (conflicts == minConflicts) {
+        bestRows[numBestRows++] = row;
+      }
+    }
+    // Randomly select one of the best rows to diversify moves
+    int newRow = bestRows[xorshift() % numBestRows];
+    UpdateQueen(b, col, newRow);
+  }
+  free(bestRows);
 }
 
 // Validate if the solution is valid (no queens attack each other)
 int ValidateSolution(int *queens, int n) {
-    for (int i = 0; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-            // Check row conflicts
-            if (queens[i] == queens[j]) {
-                return 0; // false
-            }
-            // Check diagonal conflicts
-            if (abs_int(i - j) == abs_int(queens[i] - queens[j])) {
-                return 0; // false
-            }
-        }
+  for (int i = 0; i < n; i++) {
+    for (int j = i + 1; j < n; j++) {
+      // Check row conflicts
+      if (queens[i] == queens[j]) {
+        return 0; // false
+      }
+      // Check diagonal conflicts
+      if (abs_int(i - j) == abs_int(queens[i] - queens[j])) {
+        return 0; // false
+      }
     }
-    return 1; // true
+  }
+  return 1; // true
 }
 
 // Structure to pass data to threads
 typedef struct {
-    Board *board;
-    int *cols;
-    int numCols;
+  Board *board;
+  int *cols;
+  int numCols;
 } ThreadData;
 
 // Thread function to minimize conflicts
 void *MinimizeConflictsThread(void *arg) {
-    ThreadData *data = (ThreadData *)arg;
-    MinimizeConflicts(data->board, data->cols, data->numCols);
-    return NULL;
+  ThreadData *data = (ThreadData *)arg;
+  MinimizeConflicts(data->board, data->cols, data->numCols);
+  return NULL;
 }
 
-// Solve the N-Queens problem using an optimized parallel Min-Conflicts algorithm
+// Solve the N-Queens problem using an optimized parallel Min-Conflicts
+// algorithm
 double SolveParallel(int n, int maxSteps, int numCPU) {
-    // Use system time to keep track of threads finishing and ending
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+  // Use system time to keep track of threads finishing and ending
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
 
-    Board *board = NewBoard(n);
-    int step = 0; // Keep track of steps till solution found
-    
-    int *conflictCols = (int *)malloc(n * sizeof(int));
+  Board *board = NewBoard(n);
+  int step = 0; // Keep track of steps till solution found
 
-    // Create pool to store multiple threads
-    pthread_t *threadPool = (pthread_t *)malloc(numCPU*sizeof(pthread_t));
-    ThreadData *threadDataPool = (ThreadData *)malloc(numCPU*sizeof(ThreadData));
+  int *conflictCols = (int *)malloc(n * sizeof(int));
 
-    while (step < maxSteps) {
-        int numConflicts = 0;
-        // Collect columns with conflicts
-        for (int col = 0; col < n; col++) {
-            if (HasConflict(board, col)) conflictCols[numConflicts++] = col;
-        }
+  // Create pool to store multiple threads
+  pthread_t *threadPool = (pthread_t *)malloc(numCPU * sizeof(pthread_t));
+  ThreadData *threadDataPool =
+      (ThreadData *)malloc(numCPU * sizeof(ThreadData));
 
-        // Board has been solved
-        if (numConflicts == 0) {
-            //Display Time Taken
-            clock_gettime(CLOCK_MONOTONIC, &end);
-            double duration = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_sec) / 1e9;
-            printf(" -- Solution found in %.3f seconds \n", duration);
-            printf(" -- Solution found in %d (%d) steps \n", step, step*numCPU);
-
-            //Validate Solution
-            if (ValidateSolution(board->queens, n)){
-                printf(" -- Solution is valid!\n");
-            } else {printf(" -- ERROR: Invalid solution found\n");}
-
-            DeleteBoard(board);
-            free(conflictCols);
-            free(threadPool);
-            free(threadDataPool);
-            return duration; // Solution found
-        }
-
-        // Shuffle conflict columns to randomize processing order
-        for (int i = numConflicts - 1; i > 0; i--) {
-            int j = xorshift() % (i + 1); // Selects random column
-            int temp = conflictCols[i];
-            conflictCols[i] = conflictCols[j];
-            conflictCols[j] = temp;
-        }
-
-        // Divide conflict columns among workers
-        int chunkSize = (numConflicts + numCPU - 1) / numCPU;
-        int numThreads = 0;
-        for (int i = 0; i < numCPU; i++) {
-            int start = i * chunkSize;
-            int end = start + chunkSize;
-            if (end > numConflicts) end = numConflicts;
-            if (start >= end) break;
-
-            // Add data to thread
-            threadDataPool[i].board = board;
-            threadDataPool[i].cols = &conflictCols[start];
-            threadDataPool[i].numCols = end - start;
-
-            // Create new thread
-            pthread_create(&threadPool[i], NULL, MinimizeConflictsThread, &threadDataPool[i]);
-            numThreads++;
-        }
-        // Wait for all workers to finish
-        for (int i = 0; i < numThreads; i++) pthread_join(threadPool[i], NULL);
-        step++;
+  while (step < maxSteps) {
+    int numConflicts = 0;
+    // Collect columns with conflicts
+    for (int col = 0; col < n; col++) {
+      if (HasConflict(board, col))
+        conflictCols[numConflicts++] = col;
     }
-    free(conflictCols);
-    free(threadPool);
-    free(threadDataPool);
-    DeleteBoard(board);
-    printf(" -- ERROR Solution NOT found in %d (%d) steps\n", step, step*numCPU);
-    return 0; // No solution found
+
+    // Board has been solved
+    if (numConflicts == 0) {
+      // Display Time Taken
+      clock_gettime(CLOCK_MONOTONIC, &end);
+      double duration =
+          (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_sec) / 1e9;
+      printf(" -- Solution found in %.3f seconds \n", duration);
+      printf(" -- Solution found in %d (%d) steps \n", step, step * numCPU);
+
+      // Validate Solution
+      if (ValidateSolution(board->queens, n)) {
+        printf(" -- Solution is valid!\n");
+      } else {
+        printf(" -- ERROR: Invalid solution found\n");
+      }
+
+      DeleteBoard(board);
+      free(conflictCols);
+      free(threadPool);
+      free(threadDataPool);
+      return duration; // Solution found
+    }
+
+    // Shuffle conflict columns to randomize processing order
+    for (int i = numConflicts - 1; i > 0; i--) {
+      int j = xorshift() % (i + 1); // Selects random column
+      int temp = conflictCols[i];
+      conflictCols[i] = conflictCols[j];
+      conflictCols[j] = temp;
+    }
+
+    // Divide conflict columns among workers
+    int chunkSize = (numConflicts + numCPU - 1) / numCPU;
+    int numThreads = 0;
+    for (int i = 0; i < numCPU; i++) {
+      int start = i * chunkSize;
+      int end = start + chunkSize;
+      if (end > numConflicts)
+        end = numConflicts;
+      if (start >= end)
+        break;
+
+      // Add data to thread
+      threadDataPool[i].board = board;
+      threadDataPool[i].cols = &conflictCols[start];
+      threadDataPool[i].numCols = end - start;
+
+      // Create new thread
+      pthread_create(&threadPool[i], NULL, MinimizeConflictsThread,
+                     &threadDataPool[i]);
+      numThreads++;
+    }
+    // Wait for all workers to finish
+    for (int i = 0; i < numThreads; i++)
+      pthread_join(threadPool[i], NULL);
+    step++;
+  }
+  free(conflictCols);
+  free(threadPool);
+  free(threadDataPool);
+  DeleteBoard(board);
+  printf(" -- ERROR Solution NOT found in %d (%d) steps\n", step,
+         step * numCPU);
+  return 0; // No solution found
+}
+
+// File input function that validates input.txt as a solution for nQueens, and
+// validates it Required function for assignment submission
+void file_input() {
+  FILE *fp = fopen("input.txt", "r");
+  if (fp == NULL) {
+    printf("Error: Cannot open input.txt\n");
+    return;
+  }
+
+  int n;
+  if (fscanf(fp, "%d", &n) != 1) {
+    printf("Error: Failed to read the number of queens\n");
+    fclose(fp);
+    return;
+  }
+
+  int *queens = (int *)malloc(n * sizeof(int));
+  if (queens == NULL) {
+    printf("Error: Memory allocation failed\n");
+    fclose(fp);
+    return;
+  }
+
+  for (int i = 0; i < n; i++) {
+    if (fscanf(fp, "%d", &queens[i]) != 1) {
+      printf("Error: Failed to read the queen positions\n");
+      free(queens);
+      fclose(fp);
+      return;
+    }
+    // Optional: Check if the position is within valid range
+    if (queens[i] < 0 || queens[i] >= n) {
+      printf("Invalid position for queen at column %d: %d\n", i, queens[i]);
+      free(queens);
+      fclose(fp);
+      return;
+    }
+  }
+
+  fclose(fp);
+
+  if (ValidateSolution(queens, n)) {
+    printf("Valid solution\n");
+  } else {
+    printf("Invalid solution\n");
+  }
+
+  free(queens);
 }
 
 int main() {
-    int boardSizes[] = {10000};
-    int testQuantity = 20;
-    random_state = (uint32_t)time(NULL); // Set random
-    int numSizes = sizeof(boardSizes) / sizeof(boardSizes[0]);
-    
-    int numCPU = sysconf(_SC_NPROCESSORS_ONLN); // Find number of CPU's available
-    if (numCPU < 1) numCPU = 1;
+  // File input function for when validating txt files
+  /* file_input(); */
 
-    for (int idx = 0; idx < numSizes; idx++) {
-        int n = boardSizes[idx];
-        int maxSteps = n * 10;
-        double total_time = 0;
-        for (int x = 0; x < testQuantity; x++){
-            total_time += SolveParallel(n, maxSteps, numCPU);
-        }
-        printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time/testQuantity);
+  int boardSizes[] = {10000};
+  int testQuantity = 20;
+  random_state = (uint32_t)time(NULL); // Set random
+  int numSizes = sizeof(boardSizes) / sizeof(boardSizes[0]);
+
+  int numCPU = sysconf(_SC_NPROCESSORS_ONLN); // Find number of CPU's available
+  if (numCPU < 1)
+    numCPU = 1;
+
+  for (int idx = 0; idx < numSizes; idx++) {
+    int n = boardSizes[idx];
+    int maxSteps = n * 10;
+    double total_time = 0;
+    for (int x = 0; x < testQuantity; x++) {
+      total_time += SolveParallel(n, maxSteps, numCPU);
     }
-    return 0;
+    printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time / testQuantity);
+  }
+  return 0;
 }
