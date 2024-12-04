@@ -165,15 +165,14 @@ void *MinimizeConflictsThread(void *arg) {
 }
 
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts algorithm
-double SolveParallel(int n, int maxSteps) {
+double SolveParallel(int n, int maxSteps, int numCPU) {
     // Use system time to keep track of threads finishing and ending
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     Board *board = NewBoard(n);
     int step = 0; // Keep track of steps till solution found
-    int numCPU = sysconf(_SC_NPROCESSORS_ONLN); // Find number of CPU's available
-    if (numCPU < 1) numCPU = 1;
+    
     int *conflictCols = (int *)malloc(n * sizeof(int));
 
     // Create pool to store multiple threads
@@ -250,13 +249,16 @@ int main() {
     int testQuantity = 20;
     random_state = (uint32_t)time(NULL); // Set random
     int numSizes = sizeof(boardSizes) / sizeof(boardSizes[0]);
+    
+    int numCPU = sysconf(_SC_NPROCESSORS_ONLN); // Find number of CPU's available
+    if (numCPU < 1) numCPU = 1;
 
     for (int idx = 0; idx < numSizes; idx++) {
         int n = boardSizes[idx];
         int maxSteps = n * 10;
         double total_time = 0;
         for (int x = 0; x < testQuantity; x++){
-            total_time += SolveParallel(n, maxSteps);
+            total_time += SolveParallel(n, maxSteps, numCPU);
         }
         printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time/testQuantity);
     }
