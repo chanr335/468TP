@@ -181,7 +181,7 @@ void *MinimizeConflictsThread(void *arg) {
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts
 // algorithm
 double SolveParallel(int n, int maxSteps) {
-    unsigned int globalSeed = 12345; // Use a constant seed for reproducibility
+    unsigned int globalSeed = rand(); // Use a constant seed for reproducibility
 
     clock_t startTime = clock();
     Board *board = NewBoard(n);
@@ -253,7 +253,7 @@ double SolveParallel(int n, int maxSteps) {
             threadData[i].board = board;
             threadData[i].cols = &conflictCols[start];
             threadData[i].numCols = end - start;
-            threadData[i].seed = 12345 + i;  // Use a constant seed with thread index for reproducibility
+            threadData[i].seed = rand() + i;  // Use a constant seed with thread index for reproducibility
 
             pthread_create(&threads[i], NULL, MinimizeConflictsThread, &threadData[i]);
             numThreads++;
@@ -281,7 +281,7 @@ double SolveParallel(int n, int maxSteps) {
 
 int main() {
     // Initialize random seed
-    srand(12345);
+    srand(time(NULL));
 
     // Range of board sizes to test
     int boardSizes[] = {100, 1000, 10000, 100000, 1000000};
