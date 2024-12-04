@@ -2,6 +2,7 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -266,38 +267,128 @@ void file_input() {
     return;
   }
 
-  int n;
-  if (fscanf(fp, "%d", &n) != 1) {
-    printf("Error: Failed to read the number of queens\n");
-    fclose(fp);
-    return;
-  }
+  int n = 0;
+  int *queens = NULL;
+  char line[1024]; // Assuming max board size is less than 1024
 
-  int *queens = (int *)malloc(n * sizeof(int));
-  if (queens == NULL) {
-    printf("Error: Memory allocation failed\n");
-    fclose(fp);
-    return;
-  }
+  int row = 0;
+  int board_size = -1; // Initialize to invalid value
 
-  for (int i = 0; i < n; i++) {
-    if (fscanf(fp, "%d", &queens[i]) != 1) {
-      printf("Error: Failed to read the queen positions\n");
+  while (fgets(line, sizeof(line), fp)) {
+    // Remove newline character at the end, if any
+    size_t len = strlen(line);
+    if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+      line[--len] = '\0';
+    }
+
+    // Ignore empty lines
+    if (len == 0) {
+      continue;
+    }
+
+    // Split the line into tokens
+    char *tokens[1024];
+    int token_count = 0;
+    char *token = strtok(line, " \t");
+    while (token != NULL) {
+      tokens[token_count++] = token;
+      token = strtok(NULL, " \t");
+    }
+
+    if (board_size == -1) {
+      // First non-empty line, determine board size
+      board_size = token_count;
+      n = board_size;
+      if (n <= 0) {
+        printf("Error: Invalid board size\n");
+        fclose(fp);
+        return;
+      }
+      // Allocate queens array
+      queens = (int *)malloc(n * sizeof(int));
+      if (queens == NULL) {
+        printf("Error: Memory allocation failed\n");
+        fclose(fp);
+        return;
+      }
+      // Initialize queens array to -1
+      for (int i = 0; i < n; i++) {
+        queens[i] = -1;
+      }
+    } else {
+      if (token_count != board_size) {
+        printf("Error: Inconsistent line length at row %d\n", row);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+    }
+
+    // Process the tokens
+    int numQ = 0; // Number of 'Q's in this row
+    for (int col = 0; col < n; col++) {
+      char *c = tokens[col];
+      if (strlen(c) != 1) {
+        printf("Error: Invalid character '%s' at row %d, column %d\n", c, row,
+               col);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+      if (c[0] == 'Q') {
+        numQ++;
+        if (numQ > 1) {
+          printf("Error: More than one queen in row %d\n", row);
+          free(queens);
+          fclose(fp);
+          return;
+        }
+        if (queens[col] != -1) {
+          printf("Error: More than one queen in column %d\n", col);
+          free(queens);
+          fclose(fp);
+          return;
+        }
+        queens[col] = row;
+      } else if (c[0] != '.') {
+        printf("Error: Invalid character '%c' at row %d, column %d\n", c[0],
+               row, col);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+    }
+
+    if (numQ == 0) {
+      printf("Error: No queen found in row %d\n", row);
       free(queens);
       fclose(fp);
       return;
     }
-    // Optional: Check if the position is within valid range
-    if (queens[i] < 0 || queens[i] >= n) {
-      printf("Invalid position for queen at column %d: %d\n", i, queens[i]);
-      free(queens);
-      fclose(fp);
-      return;
-    }
+
+    row++;
+  }
+
+  if (row != n) {
+    printf("Error: Expected %d rows, but got %d rows\n", n, row);
+    free(queens);
+    fclose(fp);
+    return;
   }
 
   fclose(fp);
 
+  // Now check if all columns have a queen
+  for (int col = 0; col < n; col++) {
+    if (queens[col] == -1) {
+      printf("Error: No queen found in column %d\n", col);
+      free(queens);
+      return;
+    }
+  }
+
+  // Now we have queens[col] = row for each column.
+  // Now validate the solution
   if (ValidateSolution(queens, n)) {
     printf("Valid solution\n");
   } else {
@@ -309,8 +400,8 @@ void file_input() {
 
 int main() {
   // File input function for when validating txt files
-  /* file_input(); */
-
+  file_input();
+  /**
   int boardSizes[] = {10000};
   int testQuantity = 20;
   random_state = (uint32_t)time(NULL); // Set random
@@ -329,5 +420,6 @@ int main() {
     }
     printf("\n\n AVERAGE FOR %d:  %.3f s\n\n\n", n, total_time / testQuantity);
   }
+  */
   return 0;
 }
