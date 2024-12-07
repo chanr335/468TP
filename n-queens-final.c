@@ -4,6 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdatomic.h>
+#include <string.h>
 
 uint32_t random_state;
 
@@ -214,6 +215,148 @@ void PrintSolutionToFile(int *queens, int n, int run, int total){
 }
 
 
+// File input function that validates input.txt as a solution for nQueens, and
+// validates it Required function for assignment submission
+void file_input() {
+  FILE *fp = fopen("input.txt", "r");
+  if (fp == NULL) {
+    printf("Error: Cannot open input.txt\n");
+    return;
+  }
+
+  int n = 0;
+  int *queens = NULL;
+  char line[1024]; // Assuming max board size is less than 1024
+
+  int row = 0;
+  int board_size = -1; // Initialize to invalid value
+
+  while (fgets(line, sizeof(line), fp)) {
+    // Remove newline character at the end, if any
+    size_t len = strlen(line);
+    if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+      line[--len] = '\0';
+    }
+
+    // Ignore empty lines
+    if (len == 0) {
+      continue;
+    }
+
+    // Split the line into tokens
+    char *tokens[1024];
+    int token_count = 0;
+    char *token = strtok(line, " \t");
+    while (token != NULL) {
+      tokens[token_count++] = token;
+      token = strtok(NULL, " \t");
+    }
+
+    if (board_size == -1) {
+      // First non-empty line, determine board size
+      board_size = token_count;
+      n = board_size;
+      if (n <= 0) {
+        printf("Error: Invalid board size\n");
+        fclose(fp);
+        return;
+      }
+      // Allocate queens array
+      queens = (int *)malloc(n * sizeof(int));
+      if (queens == NULL) {
+        printf("Error: Memory allocation failed\n");
+        fclose(fp);
+        return;
+      }
+      // Initialize queens array to -1
+      for (int i = 0; i < n; i++) {
+        queens[i] = -1;
+      }
+    } else {
+      if (token_count != board_size) {
+        printf("Error: Inconsistent line length at row %d\n", row);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+    }
+
+    // Process the tokens
+    int numQ = 0; // Number of 'Q's in this row
+    for (int col = 0; col < n; col++) {
+      char *c = tokens[col];
+      if (strlen(c) != 1) {
+        printf("Error: Invalid character '%s' at row %d, column %d\n", c, row,
+               col);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+      if (c[0] == 'Q') {
+        numQ++;
+        if (numQ > 1) {
+          printf("Error: More than one queen in row %d\n", row);
+          free(queens);
+          fclose(fp);
+          return;
+        }
+        if (queens[col] != -1) {
+          printf("Error: More than one queen in column %d\n", col);
+          free(queens);
+          fclose(fp);
+          return;
+        }
+        queens[col] = row;
+      } else if (c[0] != '.') {
+        printf("Error: Invalid character '%c' at row %d, column %d\n", c[0],
+               row, col);
+        free(queens);
+        fclose(fp);
+        return;
+      }
+    }
+
+    if (numQ == 0) {
+      printf("Error: No queen found in row %d\n", row);
+      free(queens);
+      fclose(fp);
+      return;
+    }
+
+    row++;
+  }
+
+  if (row != n) {
+    printf("Error: Expected %d rows, but got %d rows\n", n, row);
+    free(queens);
+    fclose(fp);
+    return;
+  }
+
+  fclose(fp);
+
+  // Now check if all columns have a queen
+  for (int col = 0; col < n; col++) {
+    if (queens[col] == -1) {
+      printf("Error: No queen found in column %d\n", col);
+      free(queens);
+      return;
+    }
+  }
+
+  // Now we have queens[col] = row for each column.
+  // Now validate the solution
+  if (ValidateSolution(queens, n)) {
+    printf("Valid solution\n");
+  } else {
+    printf("Invalid solution\n");
+  }
+
+  free(queens);
+}
+
+
+
 
 
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts
@@ -325,7 +468,15 @@ int main() {
 
     int boardSizes[] = {100};
     int testQuantity = 5;
+    int checkInput = 1; //1 = True, 0 = False
     random_state = (uint32_t)time(NULL); //Based on current time, SO UNIQUE
+
+    //If Checking Input Is Valid
+    if (checkInput){
+        file_input();
+        return;
+    }
+    //Otherwise Solving Random Tests
 
     int numCPU = sysconf(_SC_NPROCESSORS_ONLN);
     
