@@ -403,7 +403,10 @@ double SolveParallel(int n, int maxSteps, int numCPU, int run_num, int run_total
                 printf(" -- Solution is valid!\n\n");
 
                 //Print Solution To File
-                PrintSolutionToFile(board->queens, n, run_num, run_total);
+                if (printSolution){
+                    PrintSolutionToFile(board->queens, n, run_num, run_total);
+                }
+                
             } else {printf(" -- ERROR: Invalid solution found\n");}
 
             //Delete Board and memory
@@ -469,6 +472,8 @@ int main() {
     int boardSizes[] = {100};
     int testQuantity = 5;
     int checkInput = 1; //1 = True, 0 = False
+    int printSolution = 1; //1 = True, 0 = False
+
     random_state = (uint32_t)time(NULL); //Based on current time, SO UNIQUE
 
     //If Checking Input Is Valid
@@ -495,7 +500,7 @@ int main() {
 
         //Run Quantity of Tests
         for (int x = 0; x < testQuantity; x++){
-            total_time += SolveParallel(n, maxSteps, numCPU, x, testQuantity);
+            total_time += SolveParallel(n, maxSteps, numCPU, x, testQuantity, printSolution);
         }
         //Return Average
         printf("\n\n AVERAGE FOR %d RANDOM n=%d BOARD:  %.3f s\n\n\n", testQuantity, n, total_time/testQuantity);
