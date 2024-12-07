@@ -474,7 +474,7 @@ int main() {
     //If Checking Input Is Valid
     if (checkInput){
         file_input();
-        return;
+        return 0;
     }
     //Otherwise Solving Random Tests
 
