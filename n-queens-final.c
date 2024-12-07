@@ -361,7 +361,7 @@ void file_input() {
 
 // Solve the N-Queens problem using an optimized parallel Min-Conflicts
 // algorithm
-double SolveParallel(int n, int maxSteps, int numCPU, int run_num, int run_total) {
+double SolveParallel(int n, int maxSteps, int numCPU, int run_num, int run_total, int printSolution) {
 
     //Store REAL time counts
     struct timespec start, end;
